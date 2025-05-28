@@ -1,0 +1,306 @@
+   1 0000               # File:  backtrack.asm
+   2 0000               # Author: Griffin Danner-Doran, Section 2
+   3 0000               # Description: Solves the puzzle read in and stored by sudoku.asm
+   4 0000               #	       Starts from the upper leftmost cell of the supplied puzzle
+   5 0000               #	       and uses backtracking to resolve empty cells, directly modifies puzzle array.
+   6 0000               #	       Returns 1 or -1 to sudoku.asm, with 1 meaning a complete puzzle
+   7 0000               #	       and -1 meaning an impossible puzzle
+   8 0000               #
+   9 0000               # Inputs:     The 36 word puzzle array created and populated in sudoku.asm
+  10 0000               #
+  11 0000               # Outputs:    A solved version of the puzzle array and $v0 = 1
+  12 0000               #	      when the puzzle can be solved, else incomplete puzzle
+  13 0000               #	      and $v0 = -1 if not
+  14 0000               
+  15 0000               
+  16 0000               
+  17 0000               	.text
+  18 0000               	.align 2
+  19 0000               	.globl  puzzle
+  20 0000               	.globl  find_solution
+  21 0000               
+  22 0000               
+  23 0000               #
+  24 0000               # Name:         find_solution
+  25 0000               #
+  26 0000               # Description:  A recursive backtracking function that solves the given cell
+  27 0000               #		and recurses to the next cell in the puzzle array, fills in
+  28 0000               #		all empty cells and returns 1 if a solution exists. Otherwise,
+  29 0000               #		returns an error code.
+  30 0000               #
+  31 0000               # Arguments:	a0: the row to check, indexed 0 - 5
+  32 0000               #		a1: the col to check, indexed 0 - 5
+  33 0000               #
+  34 0000               # Returns:	v0: 1 if valid solution from this cell, -1 otherwise
+  35 0000               #		note: a return of -1 from the initial call(cell 0,0)
+  36 0000               #		indicates an impossible puzzle and triggers
+  37 0000               #		the error message to be printed in sudoku.asm.
+  38 0000               #		For other cells, it is used to prune invalid solutions.
+  39 0000               find_solution:
+  40 0000 23BDFFE4		addi    $sp, $sp, -28   #make space on stack frame
+  41 0004 AFBF0000	        sw      $ra, 0($sp)     #save $ra to stack
+  42 0008 AFB00004	        sw      $s0, 4($sp)     #save $s0 to stack
+  43 000c AFB10008		sw      $s1, 8($sp)     #save $s1 to stack
+  44 0010 AFB2000C		sw      $s2, 12($sp)    #save $s2 to stack
+  45 0014 AFB30010		sw	$s3, 16($sp)	#save $s3 to stack
+  46 0018 AFA40014		sw	$a0, 20($sp)	#save $a0 to stack
+  47 001c AFA50018		sw	$a1, 24($sp)	#save $a1 to stack
+  48 0020 00008821		move	$s1, $zero	#set $s1 to zero
+  49 0024 00809021		move	$s2, $a0	#store $a0 in $s2
+  50 0028 00A09821		move	$s3, $a1	#store $a1 in $s3
+  51 002c 2002FFFF		addi	$v0, $zero, -1	#$v0 defaults to -1
+  52 0030 20080006		addi	$t0, $zero, 6	#save the max number of cols in $t0
+  53 0034 15130004		bne	$t0, $s3, recurse	#run normal recursion if not
+  54 0038               					#on col 6, reset to next row otherwise
+  55 0038               
+  56 0038               end_of_row:	#resets col counter and checks if final cell has been reached
+  57 0038 2108FFFF		addi	$t0, $t0, -1	#decrement $t0 down to 5
+  58 003c 11120028		beq	$t0, $s2, solved	#jump to success case if also on row 5
+  59 0040               					#(ie last solved cell was col 5, row 5)
+  60 0040 00009821		move	$s3, $zero	#otherwise, reset col to zero
+  61 0044 22520001		addi	$s2, $s2, 1	#and prepare to check next row
+  62 0048               
+  63 0048               recurse:	#attempts to solve the supplied cell
+  64 0048 3C100000		la	$s0, puzzle	#load address of puzzle into $s0
+     004c 36100000
+  65 0050 34010018		mul	$t0, $s2, 24	#set $t0 to offset of row
+     0054 02410018
+     0058 00004012
+  66 005c 02088020		add	$s0, $s0, $t0	#set $s0 to address of given row
+  67 0060 34010004		mul	$t0, $s3, 4	#set $t0 to offset of col
+     0064 02610018
+     0068 00004012
+  68 006c 02088020		add	$s0, $s0, $t0	#set $s0 to address of given cell
+  69 0070 8E080000		lw	$t0, 0($s0)	#load the item in said cell
+  70 0074 1100000B		beq	$t0, $zero, test_values	#if item is 0, jump to value tests
+  71 0078 01008821		move 	$s1, $t0	#else, save current item to $s1
+  72 007c 02203021		move	$a2, $s1	#move current item to $a2
+  73 0080 02402021		move	$a0, $s2	#move row to check into $a0
+  74 0084 02602821		move	$a1, $s3	#move col to check into $a1
+  75 0088 AE000000		sw	$zero, 0($s0)	#save zero in this cell so it is not considered
+  76 008c               				#a copy of itself when tested
+  77 008c               
+  78 008c 0C000042		jal	test_valid	#make sure that this supplied element is valid
+  79 0090               				#to ensure the given puzzle is solvable
+  80 0090 AE110000		sw	$s1, 0($s0)	#restore the element to its cell
+  81 0094 04400013		bltz	$v0, end	#return -1 if this cell is invalid
+  82 0098 22650001		addi	$a1, $s3, 1	#otherwise, increment col to check
+  83 009c 0C000000		jal	find_solution	#and recurse on that cell
+  84 00a0 08000039		j	end		#jump to end afterwards
+  85 00a4               
+  86 00a4               test_values:	#tests each value 1-6 for validity in an empty cell
+  87 00a4 22310001		addi	$s1, $s1, 1	#increment $s1 to the next cell possiblity, up to 6
+  88 00a8 2A280007		slti	$t0, $s1, 7	#check if all possible elements have been tested
+  89 00ac 1100000D		beq	$t0, $zero, end	#and exit loop if all elments checked
+  90 00b0 02402021		move	$a0, $s2	#move row to check into $a0
+  91 00b4 02602821		move	$a1, $s3	#move col to check into $a1
+  92 00b8 02203021		move	$a2, $s1	#move tested input into $a2
+  93 00bc 0C000042		jal	test_valid	#test if the cell is valid
+  94 00c0 0440FFF8		bltz	$v0, test_values	#test next input if cell is invalid
+  95 00c4 AE110000		sw	$s1, 0($s0)	#otherwise, save value since it is valid
+  96 00c8 22650001		addi	$a1, $s3, 1	#increment to next column
+  97 00cc 02402021		move	$a0, $s2	#make sure $a0 has row to check
+  98 00d0 0C000000		jal	find_solution	#recurse on next cell
+  99 00d4 04410003		bgez	$v0, end	#end recursion if this path is valid
+ 100 00d8 AE000000		sw	$zero, 0($s0)	#otherwise this path is invalid, so reset cell to 0
+ 101 00dc 08000029		j	test_values	#repeat loop for other test inputs
+ 102 00e0               solved:
+ 103 00e0 20020001		addi	$v0, $zero, 1	#set $v0 to 1 if whole problem is solved
+ 104 00e4               end:
+ 105 00e4 8FBF0000	        lw      $ra, 0($sp)     #restore $ra from stack
+ 106 00e8 8FB00004	        lw      $s0, 4($sp)     #restore $s0 from stack
+ 107 00ec 8FB10008		lw      $s1, 8($sp)     #restore $s1 from stack
+ 108 00f0 8FB2000C		lw      $s2, 12($sp)    #restore $s2 from stack
+ 109 00f4 8FB30010		lw	$s3, 16($sp)	#restore $s3 from stack
+ 110 00f8 8FA40014	        lw      $a0, 20($sp)    #restore $a0 from stack
+ 111 00fc 8FA50018	        lw      $a1, 24($sp)    #restore $a1 from stack
+ 112 0100 23BD001C		addi	$sp, $sp, 28	#reset stack pointer
+ 113 0104 03E00008		jr	$ra		#jump to caller
+ 114 0108               
+ 115 0108               
+ 116 0108               #
+ 117 0108               # Name:         test_valid
+ 118 0108               #
+ 119 0108               # Description:  checks if the cell described by the given
+ 120 0108               #		row and col is valid by all 3 criteria
+ 121 0108               #		with the given value
+ 122 0108               #
+ 123 0108               # Arguments:    a0: the row to check, indexed 0 - 5
+ 124 0108               #		a1: the col to check, indexed 0 - 5
+ 125 0108               #               a2: the number to check for, 1 - 6
+ 126 0108               #
+ 127 0108               # Returns:      v0: -1 if the element is invalid, 1 otherwise
+ 128 0108               test_valid:
+ 129 0108 23BDFFE8		addi    $sp, $sp, -24   #make space on stack frame
+ 130 010c AFBF0000	        sw      $ra, 0($sp)     #save $ra to stack
+ 131 0110 AFB00004	        sw      $s0, 4($sp)     #save $s0 to stack
+ 132 0114 AFB10008		sw      $s1, 8($sp)     #save $s1 to stack
+ 133 0118 AFB2000C		sw      $s2, 12($sp)    #save $s2 to stack
+ 134 011c AFA40010		sw	$a0, 16($sp)	#save $a0 to stack
+ 135 0120 AFA50014		sw	$a1, 20($sp)	#save $a1 to stack
+ 136 0124 00C08021		move	$s0, $a2	#set $s0 to given value
+ 137 0128 00808821		move	$s1, $a0	#store $a0 in $s1
+ 138 012c 00A09021		move	$s2, $a1	#store $a1 in $s2
+ 139 0130 20020001		addi	$v0, $zero, 1	#$v0 defaults to 1, a valid input
+ 140 0134               
+ 141 0134 02002821		move	$a1, $s0	#move tested input into $a1
+ 142 0138 02202021		move	$a0, $s1	#move row to check into $a0
+ 143 013c 0C000070		jal	check_row	#check if row is valid with input
+ 144 0140 04400007		bltz	$v0, test_end	#return invalid if row is invalid
+ 145 0144 02402021		move	$a0, $s2	#move col to check into $a0
+ 146 0148 0C000060		jal	check_column	#check if col is valid with input
+ 147 014c 04400004		bltz	$v0, test_end	#return invalid if col is invalid
+ 148 0150 02202021		move	$a0, $s1	#move row into $a0
+ 149 0154 02402821		move	$a1, $s2	#move col into $a1
+ 150 0158 02003021		move	$a2, $s0	#move test input into $a2
+ 151 015c 0C000080		jal	check_box	#test if box is valid with input
+ 152 0160               test_end:
+ 153 0160 8FBF0000	     	lw      $ra, 0($sp)     #restore $ra from stack
+ 154 0164 8FB00004	        lw      $s0, 4($sp)     #restore $s0 from stack
+ 155 0168 8FB10008		lw      $s1, 8($sp)     #restore $s1 from stack
+ 156 016c 8FB2000C		lw      $s2, 12($sp)    #restore $s2 from stack
+ 157 0170 8FA40010	        lw      $a0, 16($sp)    #restore $a0 from stack
+ 158 0174 8FA50014	        lw      $a1, 20($sp)    #restore $a1 from stack
+ 159 0178 23BD0018		addi	$sp, $sp, 24	#reset stack pointer
+ 160 017c 03E00008		jr	$ra		#return to caller
+ 161 0180               
+ 162 0180               
+ 163 0180               #
+ 164 0180               # Name:         check_column
+ 165 0180               #
+ 166 0180               # Description:  checks all elements in the given col
+ 167 0180               #               and looks for copies of the given value
+ 168 0180               #
+ 169 0180               # Arguments:    a0: the col to check, indexed 0 - 5
+ 170 0180               #               a1: the number to check for, 1 - 6
+ 171 0180               #
+ 172 0180               # Returns:      v0: -1 if there is a copy of the given element, 1 otherwise
+ 173 0180               check_column:
+ 174 0180 34010004		mul	$t0, $a0, 4	#multiply col location by 4 to get offset
+     0184 00810018
+     0188 00004012
+ 175 018c 3C090000		la	$t1, puzzle	#load puzzle array address into $t1
+     0190 35290000
+ 176 0194 01094020		add	$t0, $t0, $t1	#set $t0 to address of row 0, col a0
+ 177 0198 00004821		move	$t1, $zero	#set $t1 counter to zero
+ 178 019c 20020001		addi	$v0, $zero, 1	#default case is no copy found
+ 179 01a0               
+ 180 01a0               column_loop:	#checks all 6 rows in the given column
+ 181 01a0 292A0006		slti	$t2, $t1, 6	#check if all rows have been covered
+ 182 01a4 11400005		beq	$t2, $zero, column_end	#exit loop if rows 0-5 checked
+ 183 01a8 21290001		addi	$t1, $t1, 1	#increment counter $t1
+ 184 01ac 8D0A0000		lw	$t2, 0($t0)	#load the current element viewed
+ 185 01b0 21080018		addi	$t0, $t0, 24	#increment to next row
+ 186 01b4 1545FFFA		bne	$t2, $a1, column_loop	#continue loop if not a copy
+ 187 01b8 2002FFFF		addi	$v0, $zero, -1	#set return to -1 since copy found
+ 188 01bc               column_end:
+ 189 01bc 03E00008		jr	$ra		#return to caller
+ 190 01c0               
+ 191 01c0               
+ 192 01c0               #
+ 193 01c0               # Name:         check_row
+ 194 01c0               #
+ 195 01c0               # Description:  checks all elements in the given row
+ 196 01c0               #               and looks for copies of the given value
+ 197 01c0               #
+ 198 01c0               # Arguments:    a0: the row to check, indexed 0 - 5
+ 199 01c0               #               a1: the number to check for, 1 - 6
+ 200 01c0               #
+ 201 01c0               # Returns:      v0: -1 if there is a copy of the given element, 1 otherwise
+ 202 01c0               check_row:
+ 203 01c0 34010018	        mul	$t0, $a0, 24    #multiply row location by 24 to get offset
+     01c4 00810018
+     01c8 00004012
+ 204 01cc 3C090000		la	$t1, puzzle	#load puzzle array address into $t1
+     01d0 35290000
+ 205 01d4 01094020		add	$t0, $t0, $t1	#set $t0 to address of row a0, col 0
+ 206 01d8 00004821	        move    $t1, $zero      #set $t1 counter to zero
+ 207 01dc 20020001	        addi    $v0, $zero, 1   #default case is no copy found
+ 208 01e0               
+ 209 01e0               row_loop:	#checks all 6 columns in the given row
+ 210 01e0 292A0006	        slti    $t2, $t1, 6     #check if all cols have been covered
+ 211 01e4 11400005	        beq     $t2, $zero, row_end  #exit loop if cols 0-5 checked
+ 212 01e8 21290001		addi	$t1, $t1, 1	#increment counter $t1
+ 213 01ec 8D0A0000	        lw      $t2, 0($t0)     #load the current element viewed
+ 214 01f0 21080004	        addi    $t0, $t0, 4    #increment to next col
+ 215 01f4 1545FFFA	        bne     $t2, $a1, row_loop   #continue loop if not a copy
+ 216 01f8 2002FFFF	        addi    $v0, $zero, -1  #set return to -1 since copy found
+ 217 01fc               row_end:
+ 218 01fc 03E00008		jr	$ra		#return to caller
+ 219 0200               
+ 220 0200               
+ 221 0200               #
+ 222 0200               # Name:         check_box
+ 223 0200               #
+ 224 0200               # Description:  checks all elements in the box containing
+ 225 0200               #		the cell described by the given row and col
+ 226 0200               #		and looks for copies of the given value
+ 227 0200               #
+ 228 0200               # Arguments:    a0: the row to check, indexed 0 - 5
+ 229 0200               #		a1: the col to check, indexed 0 - 5
+ 230 0200               #               a2: the number to check for, 1 - 6
+ 231 0200               #
+ 232 0200               # Returns:      v0: -1 if there is a copy of the given element, 1 otherwise
+ 233 0200               check_box:
+ 234 0200 34010002		div	$t0, $a0, 2	#find which box row this cell is
+     0204 0081001A
+     0208 00004012
+ 235 020c 34010030		mul	$t0, $t0, 48	#get the offset of the box's upper row
+     0210 01010018
+     0214 00004012
+ 236 0218 34010003		div	$t1, $a1, 3	#get which box col this cell is
+     021c 00A1001A
+     0220 00004812
+ 237 0224 3401000C		mul	$t1, $t1, 12	#get the offset of the box's leftmost col
+     0228 01210018
+     022c 00004812
+ 238 0230 01094020		add	$t0, $t0, $t1	#get the offset of the box's upper left element
+ 239 0234 3C090000		la	$t1, puzzle	#load puzzle array address into $t1
+     0238 35290000
+ 240 023c 01094020		add	$t0, $t0, $t1 	#set $t0 to address of upper left element
+ 241 0240 20020001		addi	$v0, $zero, 1	#default case is no copy found
+ 242 0244 200A0002		addi	$t2, $zero, 2	#set $t2 counter to 2
+ 243 0248 200B0003		addi	$t3, $zero, 3	#set $t3 counter to 3
+ 244 024c 08000096		j	check_box_cols	#start loop through the box's cols
+ 245 0250               
+ 246 0250               check_box_rows:	#checks each of the 2 rows in the box
+ 247 0250 200B0003		addi	$t3, $zero, 3	#reset col counter to 3
+ 248 0254 2108000C		addi	$t0, $t0, 12	#adjust address to be the first col, second row of target box
+ 249 0258               
+ 250 0258               check_box_cols:	#check each of the 3 cols in each row
+ 251 0258 8D0C0000		lw	$t4, 0($t0)	#load next element in the box
+ 252 025c 21080004		addi	$t0, $t0, 4	#increment to next col
+ 253 0260 11860005		beq	$t4, $a2, copy_found	#jump to copy case if copy found
+ 254 0264 216BFFFF		addi	$t3, $t3, -1	#otherwise, decrement col counter
+ 255 0268 1560FFFB		bne	$t3, $zero, check_box_cols	#jump to start of inner loop if not all cols in row are checked
+ 256 026c 214AFFFF		addi	$t2, $t2, -1	#decrement row counter
+ 257 0270 1540FFF7		bne	$t2, $zero, check_box_rows	#jump to outer loop if not all rows are checked
+ 258 0274 0800009F		j	box_end		#go to end case once both loops end
+ 259 0278               copy_found:
+ 260 0278 2002FFFF		addi	$v0, $zero, -1	#set $v0 to -1 if copy found
+ 261 027c               box_end:
+ 262 027c 03E00008		jr	$ra		#return to caller
+
+
+     Name       F  Value   M V Sect.         References
+--------------  - -------- - - ----- --------------------------
+box_end           0000027C R   text  @  258, 261
+check_box         00000200 R   text  @  151, 233
+check_box_cols    00000258 R   text  @  244, 250, 255
+check_box_rows    00000250 R   text  @  246, 257
+check_column      00000180 R   text  @  146, 173
+check_row         000001C0 R   text  @  143, 202
+column_end        000001BC R   text  @  182, 188
+column_loop       000001A0 R   text  @  180, 186
+copy_found        00000278 R   text  @  253, 259
+end               000000E4 R   text  @   81,  84,  89,  99, 104
+end_of_row        00000038 R   text  @   56
+find_solution     00000000 R G text  @   19,  39,  83,  98
+puzzle            ******** X G       @   18,  64, 175, 204, 239
+recurse           00000048 R   text  @   53,  63
+row_end           000001FC R   text  @  211, 217
+row_loop          000001E0 R   text  @  209, 215
+solved            000000E0 R   text  @   58, 102
+test_end          00000160 R   text  @  144, 147, 152
+test_valid        00000108 R   text  @   78,  93, 128
+test_values       000000A4 R   text  @   70,  86,  94, 101

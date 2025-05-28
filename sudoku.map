@@ -1,0 +1,67 @@
+Load map
+Module entry point: 0x00400480
+
+Module:  sudoku.obj
+ Text segment:  508 bytes, load point 0x00400000
+ Data segment:  312 bytes, load point 0x10000000
+ Symbols:
+              Name Section Mode    Value
+        in_rowloop   Text   R   0x00400158
+              main   Text   RG  0x00400000
+            puzzle   Data   RG  0x100000a4
+          no_error   Text   R   0x0040004c
+       read_inputs   Text   R   0x004000d0
+             space   Data   R   0x10000053
+      solve_puzzle   Text   R   0x00400018
+       read_puzzle   Text   R   0x004000b4
+        blank_case   Text   R   0x0040018c
+        unsolvable   Text   R   0x00400088
+       normal_case   Text   R   0x0040019c
+              exit   Text   R   0x00400100
+      print_puzzle   Text   R   0x00400110
+          row_loop   Text   R   0x00400148
+            border   Data   R   0x10000064
+        str_banner   Data   R   0x10000000
+        row_border   Text   R   0x004001bc
+        print_loop   Text   R   0x00400128
+        line_break   Data   R   0x10000051
+          end_init   Text   R   0x00400098
+  unsolvable_error   Data   R   0x10000091
+             error   Text   R   0x004000fc
+               sep   Data   R   0x10000055
+         box_start   Text   R   0x0040016c
+     error_message   Data   R   0x10000066
+    print_complete   Text   R   0x004001ec
+    puzzle_banner1   Data   R   0x10000030
+    puzzle_banner2   Data   R   0x10000041
+
+Module:  backtrack.obj
+ Text segment:  640 bytes, load point 0x004001fc
+ Symbols:
+              Name Section Mode    Value
+       column_loop   Text   R   0x0040039c
+           box_end   Text   R   0x00400478
+           row_end   Text   R   0x004003f8
+        copy_found   Text   R   0x00400474
+            solved   Text   R   0x004002dc
+         check_row   Text   R   0x004003bc
+        test_valid   Text   R   0x00400304
+               end   Text   R   0x004002e0
+     find_solution   Text   RG  0x004001fc
+           recurse   Text   R   0x00400244
+          row_loop   Text   R   0x004003dc
+       test_values   Text   R   0x004002a0
+        column_end   Text   R   0x004003b8
+          test_end   Text   R   0x0040035c
+    check_box_cols   Text   R   0x00400454
+    check_box_rows   Text   R   0x0040044c
+         check_box   Text   R   0x004003fc
+      check_column   Text   R   0x0040037c
+        end_of_row   Text   R   0x00400234
+
+Module:  r2k_startup.obj
+ Text segment:  36 bytes, load point 0x0040047c
+ Symbols:
+              Name Section Mode    Value
+         SYS_EXIT2          A   0x00000011
+    __r2k__entry__   Text   RG  0x00400480

@@ -1,0 +1,316 @@
+   1 0000               # File:	sudoku.asm
+   2 0000               # Author: Griffin Danner-Doran, Section 2
+   3 0000               # Description: Reads the given puzzle into the puzzle array and
+   4 0000               #	       prints the puzzle/banners. Passes the puzzle to the
+   5 0000               #	       backtracking module which solves the puzzle if possible
+   6 0000               #
+   7 0000               # Inputs:      36 ints, 1 per line which are read from STDIN into
+   8 0000               #	       a 36 word array labeled puzzle
+   9 0000               #
+  10 0000               # Outputs:     The elements of the unsolved and solved
+  11 0000               #	       puzzle printed in a 6x6 sudoku board
+  12 0000               #	       along with various banners and error messages
+  13 0000               
+  14 0000               
+  15 0000               	.data
+  16 0000               
+  17 0000               str_banner:
+  18 0000 0A2A2A2A		.asciiz "\n**************\n**  SUDOKU  **\n**************\n\n"
+          2A2A2A2A
+          2A2A2A2A
+          2A2A2A0A
+          2A2A2020
+          5355444F
+  19 0030               puzzle_banner1:
+  20 0030 496E6974		.asciiz	"Initial Puzzle\n\n"
+          69616C20
+          50757A7A
+          6C650A0A
+          00      
+  21 0041               puzzle_banner2:
+  22 0041 0A46696E		.asciiz "\nFinal Puzzle\n\n"
+          616C2050
+          757A7A6C
+          650A0A00
+  23 0051               line_break:
+  24 0051 0A00    		.asciiz	"\n"
+  25 0053               space:
+  26 0053 2000    		.asciiz " "
+  27 0055               sep:
+  28 0055 2B2D2D2D		.asciiz	"+-----+-----+\n"
+          2D2D2B2D
+          2D2D2D2D
+          2B0A00  
+  29 0064               border:
+  30 0064 7C00    		.asciiz	"|"
+  31 0066               error_message:
+  32 0066 4552524F		.asciiz "ERROR: bad input value, Sudoku terminating"
+          523A2062
+          61642069
+          6E707574
+          2076616C
+          75652C20
+  33 0091               unsolvable_error:
+  34 0091 0A496D70		.asciiz "\nImpossible Puzzle"
+          6F737369
+          626C6520
+          50757A7A
+          6C6500  
+  35 00a4               
+  36 00a4               	.align 2
+  37 00a4               	.globl puzzle
+  38 00a4               puzzle:
+  39 00a4 00000000		.word 0:36
+     00a8 00000000
+     00ac 00000000
+     00b0 00000000
+     00b4 00000000
+     00b8 00000000
+  40 0134               
+  41 0134               
+  42 0000               	.text
+  43 0000               	.globl main
+  44 0000               	.globl find_solution
+  45 0000               
+  46 0000               #
+  47 0000               # Name:         main
+  48 0000               #
+  49 0000               # Description:  Entry point for the program. Calls the
+  50 0000               #		solve_puzzle routine to read, display, and solve the puzzle
+  51 0000               #
+  52 0000               # Arguments:    None
+  53 0000               #
+  54 0000               # Returns:      None
+  55 0000               #
+  56 0000               main:
+  57 0000 23BDFFFC		addi	$sp, $sp, -4	#make space on stack frame
+  58 0004 AFBF0000		sw	$ra, 0($sp)	#save $ra to stack
+  59 0008 0C000006		jal 	solve_puzzle	#call puzzle reading and display routine
+  60 000c 8FBF0000		lw	$ra, 0($sp)	#restore $ra from stack
+  61 0010 23BDFFFC		addi	$sp, $sp, -4	#reset stack pointer
+  62 0014 03E00008		jr	$ra		#end program
+  63 0018               
+  64 0018               
+  65 0018               #
+  66 0018               # Name:         solve_puzzle
+  67 0018               #
+  68 0018               # Description:  Main control function for the program. Calls
+  69 0018               #		functions to read, solve, and print the puzzle.
+  70 0018               #		Also handles error cases for bad inputs or bad puzzles
+  71 0018               #
+  72 0018               # Arguments:    None
+  73 0018               #
+  74 0018               # Returns:      None
+  75 0018               #
+  76 0018               solve_puzzle:
+  77 0018 23BDFFFC		addi 	$sp, $sp, -4	#make space on stack frame
+  78 001c AFBF0000		sw 	$ra, 0($sp)	#save $ra to stack
+  79 0020 34020004		li	$v0, 4		#load syscall for print string
+  80 0024 3C040000		la	$a0, str_banner	#print starting banner
+     0028 34840000
+  81 002c 0000000C		syscall
+  82 0030 0C00002D		jal	read_puzzle	#call function to read the given puzzle
+  83 0034 04410005		bgez	$v0, no_error	#if error code was 0, no error occured
+  84 0038               				#so jump to no_error and solve normally
+  85 0038               
+  86 0038 34020004		li	$v0, 4		#else, load syscall for print string
+  87 003c 3C040000		la	$a0, error_message	#print error message for invalid input
+     0040 34840000
+  88 0044 0000000C		syscall
+  89 0048 08000026		j	end_init	#jump to function end
+  90 004c               
+  91 004c               no_error:	#solves and displays the puzzle if valid inputs given
+  92 004c 34020004		li	$v0, 4		#load syscall for print string
+  93 0050 3C040000		la	$a0, puzzle_banner1	#print initial puzzle banner
+     0054 34840000
+  94 0058 0000000C		syscall
+  95 005c 0C000044		jal	print_puzzle	#print the initial puzzle
+  96 0060 00002021		move	$a0, $zero	#set first row to check to zero
+  97 0064 00002821		move	$a1, $zero	#set first col to check to zero
+  98 0068 0C000000		jal	find_solution	#call function to solve the given puzzle
+  99 006c 04400006		bltz	$v0, unsolvable	#jump to unsolvable error case if
+ 100 0070               				#no path was found($v0 == -1)
+ 101 0070 34020004		li	$v0, 4		#else, load syscall for print string
+ 102 0074 3C040000		la	$a0, puzzle_banner2	#print final puzzle banner
+     0078 34840000
+ 103 007c 0000000C		syscall
+ 104 0080 0C000044		jal 	print_puzzle	#print the final puzzle
+ 105 0084 08000026	 	j 	end_init	#jump to function end
+ 106 0088               
+ 107 0088               unsolvable:	#prints error for impossible puzzle
+ 108 0088 34020004		li	$v0, 4		#load syscall for print string
+ 109 008c 3C040000		la	$a0, unsolvable_error	#print unsolvable error message
+     0090 34840000
+ 110 0094 0000000C		syscall
+ 111 0098               end_init:
+ 112 0098 34020004		li	$v0, 4		#load syscall for print string
+ 113 009c 3C040000		la	$a0, line_break	#print a line break at the end
+     00a0 34840000
+ 114 00a4 0000000C		syscall
+ 115 00a8 8FBF0000		lw	$ra, 0($sp)	#restore $ra from stack
+ 116 00ac 23BD0004		addi	$sp, $sp, 4	#reset stack pointer
+ 117 00b0 03E00008		jr	$ra 		#return to main
+ 118 00b4               
+ 119 00b4               
+ 120 00b4               #
+ 121 00b4               # Name:         read_puzzle
+ 122 00b4               #
+ 123 00b4               # Description:  This program reads the 36 given ints into puzzle
+ 124 00b4               #		and makes sure they are valid inputs 0 - 6
+ 125 00b4               #
+ 126 00b4               # Arguments:    None
+ 127 00b4               #
+ 128 00b4               # Returns: 	v0: -1 if an invalid int is read, 0 otherwise
+ 129 00b4               #
+ 130 00b4               read_puzzle:
+ 131 00b4 23BDFFF8		addi 	$sp, $sp, -8	#make space on stack frame
+ 132 00b8 AFBF0000		sw 	$ra, 0($sp)	#save $ra to stack
+ 133 00bc AFB00004		sw	$s0, 4($sp)	#save $s0 to stack
+ 134 00c0 00004021		move	$t0, $zero	#set $t0 to zero
+ 135 00c4 20090024		addi	$t1, $zero, 36	#set $t1 as loop counter max
+ 136 00c8 3C100000		la	$s0, puzzle	#use $s0 to hold puzzle address
+     00cc 36100000
+ 137 00d0               
+ 138 00d0               read_inputs:	#reads all 36 ints given, checks for invalid inputs
+ 139 00d0 1109000B		beq	$t0, $t1, exit	#end loop after 36 times
+ 140 00d4 34020005		li	$v0, 5		#load syscall for read int
+ 141 00d8 0000000C		syscall
+ 142 00dc 284A0007		slti	$t2, $v0, 7	#check if value is less than 7
+ 143 00e0 11400006		beq	$t2, $zero, error	#go to error case if >= 7
+ 144 00e4 04400005		bltz	$v0, error	#go to error case if value is negative
+ 145 00e8 AE020000		sw	$v0, 0($s0)	#Otherwise, save new value to puzzle array
+ 146 00ec 21080001		addi	$t0, $t0, 1	#increment $t0 counter
+ 147 00f0 22100004		addi	$s0, $s0, 4	#increment to next puzzle array element
+ 148 00f4 00001021		move	$v0, $zero	#set $v0 to zero
+ 149 00f8 08000034		j	read_inputs	#jump to start of loop
+ 150 00fc               
+ 151 00fc               error:		#returns error code -1 if non 0 - 6 value is read
+ 152 00fc 2002FFFF		addi	$v0, $zero, -1	#set function return to error code -1
+ 153 0100               exit:
+ 154 0100 8FBF0000		lw	$ra, 0($sp)	#restore $ra from stack
+ 155 0104 8FB00004		lw	$s0, 4($sp)	#restore $s0 from stack
+ 156 0108 23BD0008		addi	$sp, $sp, 8	#reset stack pointer
+ 157 010c 03E00008		jr	$ra		#return to caller
+ 158 0110               
+ 159 0110               
+ 160 0110               #
+ 161 0110               # Name:         print_puzzle
+ 162 0110               #
+ 163 0110               # Description:  prints the elements currently in the puzzle array
+ 164 0110               #		in the 6x6 sudoku board format
+ 165 0110               #
+ 166 0110               # Arguments:    None
+ 167 0110               #
+ 168 0110               # Returns:      None
+ 169 0110               #
+ 170 0110               print_puzzle:
+ 171 0110 23BDFFF8		addi 	$sp, $sp, -8	#make space on stack frame
+ 172 0114 AFBF0000		sw 	$ra, 0($sp)	#save $ra to stack
+ 173 0118 AFB00004		sw	$s0, 4($sp)	#save $s0 to stack
+ 174 011c 00004021		move	$t0, $zero	#set $t0 to zero
+ 175 0120 3C100000		la	$s0, puzzle	#use $s0 to hold puzzle address
+     0124 36100000
+ 176 0128               
+ 177 0128               print_loop:	#loops once for each of the 3 rows of 2x3 boxes
+ 178 0128 34020004		li	$v0, 4		#load syscall for print string
+ 179 012c 3C040000		la	$a0, sep	#print sep between row boxes
+     0130 34840000
+ 180 0134 0000000C		syscall
+ 181 0138 29090003		slti	$t1, $t0, 3	#check if all 3 box rows are printed
+ 182 013c 1120002B		beq	$t1, $zero, print_complete	#if so, go to program end
+ 183 0140 21080001		addi	$t0, $t0, 1	#else increment box row counter
+ 184 0144 200B0002		addi	$t3, $zero, 2	#reset counter for rows in each 2x3 box
+ 185 0148               
+ 186 0148               row_loop:	#loops 2 times, once for each of the 2 rows in a 2x3 row box
+ 187 0148 1160FFF7		beq	$t3, $zero, print_loop	#jump to next box row when 2 rows printed
+ 188 014c 216BFFFF		addi	$t3, $t3, -1	#decrement $t3 counter
+ 189 0150 200C0002		addi	$t4, $zero, 2	#set $t4 counter to 2
+ 190 0154 00006821		move	$t5, $zero	#set $t5 counter to zero
+ 191 0158               
+ 192 0158               in_rowloop:	#loops for each of the 6 ints and the 3 borders in a row
+ 193 0158 29AF0004		slti	$t7, $t5, 4	#check if a new border is needed
+ 194 015c 15E00003		bne	$t7, $zero, box_start	#go normally if box is incomplete
+ 195 0160 00006821		move	$t5, $zero	#reset to next box in row
+ 196 0164 218CFFFF		addi	$t4, $t4, -1	#decrement the boxes in this row that are empty
+ 197 0168 11800014		beq	$t4, $zero, row_border	#if both boxes in this row are empty,
+ 198 016c               					#print the right puzzle border
+ 199 016c               
+ 200 016c               box_start: 	#prints out the next element in the row or a border
+ 201 016c 11A00013		beq	$t5, $zero, row_border	#if this is the start of a row
+ 202 0170               					#go the the border print case
+ 203 0170 8E0E0000		lw	$t6, 0($s0)	#Otherwise, load next int to print
+ 204 0174 22100004		addi	$s0, $s0, 4	#increment puzzle array pointer
+ 205 0178 11C00004		beq	$t6, $zero, blank_case	#if int is zero, print a space
+ 206 017c 34020001		li	$v0, 1		#load syscall for print int
+ 207 0180 01C02021		move	$a0, $t6	#print next int as the cell element
+ 208 0184 0000000C		syscall
+ 209 0188 08000067		j	normal_case	#dont print extra space if int was printed
+ 210 018c               
+ 211 018c               blank_case: 	#prints out a space for 0 values in an initial puzzle
+ 212 018c 34020004		li	$v0, 4		#load syscall for print string
+ 213 0190 3C040000		la	$a0, space	#print space as the cell element
+     0194 34840000
+ 214 0198 0000000C		syscall
+ 215 019c               
+ 216 019c               normal_case:	#checks if a space needs to be printed after the element
+ 217 019c 21AD0001		addi $t5, $t5, 1	#increment row char counter
+ 218 01a0 29AF0004		slti	$t7, $t5, 4	#check if this character is against a box edge
+ 219 01a4 11E0FFEC		beq	$t7, $zero, in_rowloop	#if so, evaluate next char without a space
+ 220 01a8 34020004		li	$v0, 4		#load syscall for print string
+ 221 01ac 3C040000		la	$a0, space	#print space between characters
+     01b0 34840000
+ 222 01b4 0000000C		syscall
+ 223 01b8 08000056		j in_rowloop		#loop to print next char
+ 224 01bc               
+ 225 01bc               row_border: 	#prints out a border between boxes and at puzzle edges
+ 226 01bc 34020004		li	$v0, 4		#load syscall for print string
+ 227 01c0 3C040000		la	$a0, border	#print border line
+     01c4 34840000
+ 228 01c8 0000000C		syscall
+ 229 01cc 21AD0001		addi	$t5, $t5, 1	#increment row char counter
+ 230 01d0 1580FFE1		bne	$t4, $zero, in_rowloop	#if not the end of a puzzle row,
+ 231 01d4               					#start to print the next box in this row
+ 232 01d4 34020004		li	$v0, 4		#load syscall for print string
+ 233 01d8 3C040000		la	$a0, line_break	#print line break for next row
+     01dc 34840000
+ 234 01e0 0000000C		syscall
+ 235 01e4 00006821		move	$t5, $zero	#reset row char counter
+ 236 01e8 08000052		j 	row_loop	#jump to start of row loop
+ 237 01ec               print_complete:
+ 238 01ec 8FBF0000		lw	$ra, 0($sp)	#restore $ra from stack
+ 239 01f0 8FB00004		lw	$s0, 4($sp)	#restore $s0 from stack
+ 240 01f4 23BD0008		addi	$sp, $sp, 8	#reset stack pointer
+ 241 01f8 03E00008		jr	$ra		#return to caller 
+
+
+      Name        F  Value   M V Sect.      References
+----------------  - -------- - - ----- ---------------------
+blank_case          0000018C R   text  @  205, 211
+border              00000064 R   data  @   29, 227
+box_start           0000016C R   text  @  194, 200
+end_init            00000098 R   text  @   89, 105, 111
+error               000000FC R   text  @  143, 144, 151
+error_message       00000066 R   data  @   31,  87
+exit                00000100 R   text  @  139, 153
+find_solution       ******** X G       @   43,  98
+in_rowloop          00000158 R   text  @  192, 219, 223, 230
+line_break          00000051 R   data  @   23, 113, 233
+main                00000000 R G text  @   42,  56
+no_error            0000004C R   text  @   83,  91
+normal_case         0000019C R   text  @  209, 216
+print_complete      000001EC R   text  @  182, 237
+print_loop          00000128 R   text  @  177, 187
+print_puzzle        00000110 R   text  @   95, 104, 170
+puzzle              000000A4 R G data  @   36,  38, 136, 175
+puzzle_banner1      00000030 R   data  @   19,  93
+puzzle_banner2      00000041 R   data  @   21, 102
+read_inputs         000000D0 R   text  @  138, 149
+read_puzzle         000000B4 R   text  @   82, 130
+row_border          000001BC R   text  @  197, 201, 225
+row_loop            00000148 R   text  @  186, 236
+sep                 00000055 R   data  @   27, 179
+solve_puzzle        00000018 R   text  @   59,  76
+space               00000053 R   data  @   25, 213, 221
+str_banner          00000000 R   data  @   17,  80
+unsolvable          00000088 R   text  @   99, 107
+unsolvable_error    00000091 R   data  @   33, 109
